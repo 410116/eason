@@ -14,7 +14,7 @@
     <script>
         function pickCard() {
             var card=event.target;
-            if(p1<0){
+            if(p1<0) {
                 p1=card;
                 card.src=`pic${card.num}.png`;
             } else if(p2<0) {
@@ -22,7 +22,7 @@
                 card.src=`pic${card.num}.png`;
                 if(p1.num == p2.num) {
                     pairs++;
-                    if(pairs<6){
+                    if(pairs<6) {
                        p1=-1; p2=-1; 
                     } else {
                         alert("結束!");
