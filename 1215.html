@@ -23,8 +23,6 @@
         .ufo {
             width: 60px;
             height: 40px;
-            background: url("pic/ufo.png");
-            background-size: 60px 40px;
             position: absolute;
         }
         .bullet {
@@ -35,14 +33,6 @@
         }
     </style>
     <script>
-        function ship_move() {
-            if(ship.posX > 0 && dir["ArrowLeft"]) {
-                ship.posX--;
-            } else if (ship.posX+ship.w < spaces.w && dir["ArrowRight"]) {
-                ship.posX++;
-            }
-            ship.style.left=ship.posX+"px";
-        }
         function game_init() {
             dir={"ArrowLeft":0,"ArrowRight":0,"ArrowUp":0,"ArrowDown":0}
             spaces={w:800,h:800}; //自定義一個物件
@@ -53,10 +43,61 @@
             ship.posY=spaces.h-ship.h;
             ship.style.left=ship.posX+"px";
             ship.style.top=ship.posY+"px";
-            ship.move=setInterval(ship_move,2.5)
+            ship.move=setInterval(ship_move,2.5);
+            game_score=0;
+            document.getElementById("game_score").innerHTML=game_score;
+            game_time=0;
+            document.getElementById("game_time").innerHTML=game_time;
+            game_timer=setInterval(function() {
+                agme_time++;
+                document.getElementById("game_time").innerHTML=game_time;
+            },1000);
+            Array.from(document.getElementsByClassName("ufo")).forEach((u)=>{
+                u.remove();
+            });
+            ufo_creater=setInterval(ufo_create,1000);
+            game_starting=ture;
 
-            game_t1=setInterval(ufo_create,1000);
-        } 
+        }
+        function game_over() {
+            game_starting=false;
+            clearInterval(ufo_creater);
+            clearInterval(game_timer);
+            document.getElementById("spaces").style.animationPlayState="paused";
+            Array.from(document.getElementsByClassName("ufo")).forEach((u)=>{
+                clearInterval(u.move);
+                });
+            Array.from(document.getElementsByClassName("bullet")).forEach((b)=>{
+                clearInterval(b.move);
+                b.remove();
+            });
+            document.getElementById("restart").style.display="block";
+            var ranking=sessionStorage.getItem("ranking")
+            if(ranking==null) {
+                ranking=[];
+                ranking.push({"name":prompt("請輸入你的名稱:"),"score":game_score,"time":game_time});
+                sessionStorage.setItem("ranking",JSON.stringify(data));
+            }else {
+                var data=JSON.parse(ranking);
+                if(data.length<5) {
+                    data.push({"name":prompt("請輸入你的名稱:"),"score":game_score,"time":game_time});
+                
+                } else if(game_score > data[4].score) {
+                    data.pop();
+                    data.push({"name":prompt("請輸入你的名稱:"),"score":game_score,"time":game_time});
+                }
+                data.sort((a,b)=>{
+                    return b.score-a.score;
+                });
+                sessionStorage.setItem("ranking",JSON.stringify(data));
+             }
+            }
+
+                
+            
+
+            
+        
         function mykeydown() {
             event.preventDefault();
             if(event.key == " ") {
@@ -69,32 +110,33 @@
         }
         function mykeyup() {
             event.preventDefault();
-            dir[event.key]=0;
+            if(Object.keys(dir).includes(event.key)) { 
+                dir[event.key]=0;
+            }
+           
         }
         function getRand(min,max) {
-            Math.floor(Math.random() * (max-min+1)) + min;
+            return Math.floor(Math.random() * (max-min+1)) + min;
         }
-        function ufo_create() {
-            var u=document.createElement("img");
-            u.src="pic/ufo.png";
-            u.className="ufo";
-            u.w=60;
-            u.h=40;
-            u.posX=getRand(0,spaces.w-u.w);
-            u.posY=getRand(0,10);
-            document.getElementById("spaces").appendChild(u);
-            u.style.left=u.posX+"px";
-            u.style.top=u.posY+"px";
-            u.move=setInterval(ufo_move,20,u);
+
+        function ship_move() {
+            if(ship.posX > 0 && dir["ArrowLeft"]) {
+                ship.posX--;
+            } else if (ship.posX + ship.w < spaces.w && dir["ArrowRight"]) {
+                ship.posX++;
+            }
+            ship.style.left=ship.posX+"px";
+
         }
         function ufo_move(ufo) {
             if(ufo.posY + ufo.h > spaces.h) {
                 clearInterval(ufo.move);
                 ufo.remove();
+                game_over();  
                 return;
             } 
             ufo.posY++;
-            ufo.posX += getRand(-3,3);
+            ufo.posX += getRand(-2,2);
             if(ufo.posX < 0) {
                 ufo.posX=0;   
             } else if(ufo.posX+ufo.w > spaces.w) {
@@ -104,17 +146,33 @@
              ufo.style.left=ufo.posY+"px";
             
         }
+
+        function ufo_create() {
+            var u=document.createElement("img");
+            u.src="pic/ufo.png";
+            u.className="ufo";
+            u.w=60;
+            u.h=40;
+            u.posX=getRand(0,spaces.w - u.w);
+            u.posY=getRand(0,10);
+            document.getElementById("spaces").appendChild(u);
+            u.style.left=u.posX+"px";
+            u.style.top=u.posY+"px";
+            u.move=setInterval(ufo_move,20,u);
+        }
+        
         function shoot() {
+            if(game_starting)
             var b=document.createElement("div");
             b.className="bullet";
             b.w=4;
             b.h=6;
             b.posX=ship.posX+(ship.w-b.w)/2;
-            b.posY=ship.h-b.h;
+            b.posY=ship.posY-b.h;
             document.getElementById("spaces").appendChild(b);
             b.style.top=b.posY+"px";
             b.style.left=b.posX+"px";
-           // b.move=setInterval(bullet_move,10,b);
+            b.move=setInterval(bullet_move,10,b);
         }
         function bullet_move(bt) {
             if(bt.posY < 0) {
@@ -124,14 +182,35 @@
             }
             bt.posY--;
             bt.style.top=bt.posY+"px";
+
+            var hit_ufo = Array.from(document.getElementsByClassName("ufo")).filter((u)=>{
+                return (u.posX <= bt.posX) && (u.posX = u.w >= bt.posX + bt.w) && (u.posY + u.h >= bt.posY);
+            });
+            if(hit_ufo.length > 0) {
+                clearInterval(bt.move);
+                bt.remove();
+                hit_ufo.forEach((u)=>{
+                    clearInterval(u.move);
+                    u.remove();
+                })
+                //clearInterval(bt.move);
+                //bt.remove();
+                game_score++;
+                document.getElementById("score").innerHTML=game_score;
+            }
+
         }
     </script>
 </head>
 <body onload="game_init()" onkeydown="mykeydown()" onkeyup="mykeyup()">
+    <div id="status" style="width:800px;">
+        <span>得分: <span id="score">0</span> 分</span>
+        <span style="float:right;">時間:<span id="game_time">0</span>秒</span>
+    </div>
     <div id="spaces">
         <div id="ship"></div>
         <!--img src="pic/ship.png" width="40px"-->
-        <div class="bullet"></div>
     </div>
+    <botton id="restart" onclick="game_init();"></botton>
 </body>
 </html>
