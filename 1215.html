@@ -1,17 +1,18 @@
+
 <html>
 <head>
-    <title>宇宙射擊遊戲</title>
+    <title>1215-宇宙射擊遊戲</title>
     <style>
         #spaces {
-            width: 800px;
-            height: 800px;
+            width:800px;
+            height:800px;
             background:url("pic/bg_stars.jpg");
             animation: bg_move 2s linear infinite;
             position: relative;
         }
         @keyframes bg_move {
             0% {background-position-y: 0px;}
-            100%{background-position-y: 216px;}
+            100% {background-position-y: 216px;}
         }
         #ship {
             width: 40px;
@@ -34,6 +35,7 @@
     </style>
     <script>
         function game_init() {
+            show_ranking();
             dir={"ArrowLeft":0,"ArrowRight":0,"ArrowUp":0,"ArrowDown":0}
             spaces={w:800,h:800}; //自定義一個物件
             ship=document.getElementById("ship");
@@ -43,77 +45,52 @@
             ship.posY=spaces.h-ship.h;
             ship.style.left=ship.posX+"px";
             ship.style.top=ship.posY+"px";
-            ship.move=setInterval(ship_move,2.5);
+            ship.move=setInterval(ship_move,5);
             game_score=0;
-            document.getElementById("game_score").innerHTML=game_score;
+            document.getElementById("score").innerHTML=game_score;
             game_time=0;
             document.getElementById("game_time").innerHTML=game_time;
-            game_timer=setInterval(function() {
-                agme_time++;
+            game_timer=setInterval(function(){
+                game_time++;
                 document.getElementById("game_time").innerHTML=game_time;
             },1000);
             Array.from(document.getElementsByClassName("ufo")).forEach((u)=>{
                 u.remove();
             });
             ufo_creater=setInterval(ufo_create,1000);
-            game_starting=ture;
-
+            game_starting=true;
+            document.getElementById("restart").style.display="none";
         }
         function game_over() {
             game_starting=false;
+            clearInterval(ship.move);
             clearInterval(ufo_creater);
             clearInterval(game_timer);
             document.getElementById("spaces").style.animationPlayState="paused";
             Array.from(document.getElementsByClassName("ufo")).forEach((u)=>{
                 clearInterval(u.move);
-                });
+            });
             Array.from(document.getElementsByClassName("bullet")).forEach((b)=>{
                 clearInterval(b.move);
                 b.remove();
             });
             document.getElementById("restart").style.display="block";
-            var ranking=sessionStorage.getItem("ranking")
-            if(ranking==null) {
-                ranking=[];
-                ranking.push({"name":prompt("請輸入你的名稱:"),"score":game_score,"time":game_time});
-                sessionStorage.setItem("ranking",JSON.stringify(data));
-            }else {
-                var data=JSON.parse(ranking);
-                if(data.length<5) {
-                    data.push({"name":prompt("請輸入你的名稱:"),"score":game_score,"time":game_time});
-                
-                } else if(game_score > data[4].score) {
-                    data.pop();
-                    data.push({"name":prompt("請輸入你的名稱:"),"score":game_score,"time":game_time});
-                }
-                data.sort((a,b)=>{
-                    return b.score-a.score;
-                });
-                sessionStorage.setItem("ranking",JSON.stringify(data));
-             }
-            }
-
-                
-            
-
-            
-        
+            do_ranking();
+        }
         function mykeydown() {
             event.preventDefault();
             if(event.key == " ") {
                 shoot();
-                // event.key == "ArrowLeft" || event.key == "ArrowRight"
             } else if(Object.keys(dir).includes(event.key)) {
+            //} else if(event.key == "ArrorLeft" || event.key == "ArrowRight") {
                 dir[event.key]=1;
             }
-            dir[event.key]=1;
         }
         function mykeyup() {
             event.preventDefault();
-            if(Object.keys(dir).includes(event.key)) { 
+            if(Object.keys(dir).includes(event.key)) {
                 dir[event.key]=0;
             }
-           
         }
         function getRand(min,max) {
             return Math.floor(Math.random() * (max-min+1)) + min;
@@ -122,31 +99,29 @@
         function ship_move() {
             if(ship.posX > 0 && dir["ArrowLeft"]) {
                 ship.posX--;
-            } else if (ship.posX + ship.w < spaces.w && dir["ArrowRight"]) {
+            } else if(ship.posX + ship.w < spaces.w && dir["ArrowRight"]) {
                 ship.posX++;
             }
             ship.style.left=ship.posX+"px";
-
         }
+
         function ufo_move(ufo) {
             if(ufo.posY + ufo.h > spaces.h) {
                 clearInterval(ufo.move);
                 ufo.remove();
-                game_over();  
+                game_over();
                 return;
-            } 
+            }
             ufo.posY++;
             ufo.posX += getRand(-2,2);
             if(ufo.posX < 0) {
-                ufo.posX=0;   
+                ufo.posX=0;
             } else if(ufo.posX+ufo.w > spaces.w) {
                 ufo.posX = spaces.w-ufo.w;
-            }   
-             ufo.style.top=ufo.posY+"px";
-             ufo.style.left=ufo.posY+"px";
-            
+            }
+            ufo.style.left=ufo.posX+"px";
+            ufo.style.top=ufo.posY+"px";
         }
-
         function ufo_create() {
             var u=document.createElement("img");
             u.src="pic/ufo.png";
@@ -160,20 +135,7 @@
             u.style.top=u.posY+"px";
             u.move=setInterval(ufo_move,20,u);
         }
-        
-        function shoot() {
-            if(game_starting)
-            var b=document.createElement("div");
-            b.className="bullet";
-            b.w=4;
-            b.h=6;
-            b.posX=ship.posX+(ship.w-b.w)/2;
-            b.posY=ship.posY-b.h;
-            document.getElementById("spaces").appendChild(b);
-            b.style.top=b.posY+"px";
-            b.style.left=b.posX+"px";
-            b.move=setInterval(bullet_move,10,b);
-        }
+
         function bullet_move(bt) {
             if(bt.posY < 0) {
                 clearInterval(bt.move);
@@ -184,33 +146,83 @@
             bt.style.top=bt.posY+"px";
 
             var hit_ufo = Array.from(document.getElementsByClassName("ufo")).filter((u)=>{
-                return (u.posX <= bt.posX) && (u.posX = u.w >= bt.posX + bt.w) && (u.posY + u.h >= bt.posY);
+                return (u.posX <= bt.posX) && (u.posX + u.w >= bt.posX + bt.w) && (u.posY + u.h >= bt.posY);
             });
             if(hit_ufo.length > 0) {
-                clearInterval(bt.move);
-                bt.remove();
                 hit_ufo.forEach((u)=>{
                     clearInterval(u.move);
                     u.remove();
-                })
-                //clearInterval(bt.move);
-                //bt.remove();
+                });
+                clearInterval(bt.move);
+                bt.remove();
                 game_score++;
                 document.getElementById("score").innerHTML=game_score;
             }
+        }
+        function shoot() {
+            if(game_starting==false) return;
+            var b=document.createElement("div");
+            b.className="bullet";
+            b.w=4;
+            b.h=6;
+            b.posX=ship.posX+(ship.w-b.w)/2;
+            b.posY=ship.posY-b.h;
+            document.getElementById("spaces").appendChild(b);
+            b.style.left=b.posX+"px";
+            b.style.top=b.posY+"px";
+            b.move=setInterval(bullet_move,10,b);
+        }
 
+        function show_ranking() {
+            var ranking=sessionStorage.getItem("ranking");
+            if(ranking) {
+                document.getElementById("ranking").innerHTML="";
+                var data=Array.from(JSON.parse(ranking));
+                data.forEach((x)=>{
+                    var li=document.createElement("li");
+                    li.innerHTML=`<span style="width:150px">${x.name}</span> <span>用${x.time}秒</span> <span>得${x.score}分</span>`;
+                    document.getElementById("ranking").appendChild(li);
+                });
+            }
+        }
+        function do_ranking() {
+            var ranking=sessionStorage.getItem("ranking");
+            if(ranking==null) {
+                ranking=[];
+                ranking.push({"name":prompt("請輸入你的名稱："),"score":game_score,"time":game_time});
+                sessionStorage.setItem("ranking",JSON.stringify(ranking));
+            } else {
+                var data=Array.from(JSON.parse(ranking));
+                if(data.length<5) {
+                    data.push({"name":prompt("請輸入你的名稱："),"score":game_score,"time":game_time});
+                } else if(game_score > data[4].score) {
+                    data.pop();
+                    data.push({"name":prompt("請輸入你的名稱："),"score":game_score,"time":game_time});
+                }
+                data.sort((a,b)=>{
+                    return b.score-a.score;
+                });
+                sessionStorage.setItem("ranking",JSON.stringify(data));
+            }
+            show_ranking();
         }
     </script>
 </head>
 <body onload="game_init()" onkeydown="mykeydown()" onkeyup="mykeyup()">
-    <div id="status" style="width:800px;">
-        <span>得分: <span id="score">0</span> 分</span>
-        <span style="float:right;">時間:<span id="game_time">0</span>秒</span>
+    <div style="display:inline-block; width:800px;">
+        <div id="status">
+            <span>得分：<span id="score">0</span> 分</span>
+            <span style="float:right;">時間：<span id="game_time">0</span> 秒</span>
+        </div>
+        <div id="spaces">
+            <div id="ship"></div>
+            <!--img src="pic/ship.png" width="40px"-->
+        </div>
+        <button id="restart" onclick="game_init();">重新開始</button>
     </div>
-    <div id="spaces">
-        <div id="ship"></div>
-        <!--img src="pic/ship.png" width="40px"-->
+    <div style="display:inline-block; height:820px; vertical-align:bottom; margin-left:10px;">
+        <div style="font-size:2em; font-weight:bolder;">排行榜</div>
+        <ol id="ranking"></ol>
     </div>
-    <botton id="restart" onclick="game_init();"></botton>
 </body>
 </html>
