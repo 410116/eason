@@ -1,0 +1,485 @@
+<!DOCTYPE html> <!-- 須在第一行，宣告這個網頁使用的是最新的標準 HTML5 規範，強制瀏覽器以「標準模式」來渲染網頁，確保排版和CSS樣式在不同瀏覽器一致 -->
+<html lang="zh-TW"> <!-- lang:語言的屬性 zh:中文 TW:台灣 -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>記憶力大考驗</title>
+    <!-- 引入 Tailwind CSS 進行樣式設計 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Lucide Icons 圖標庫 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap'); /* 在顯示這網頁前，先從這伺服器下載Noto Sans TC這套字型用 */
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a; /* slate-900 */
+            user-select: none;
+        }
+
+        /* 自定義動畫 */
+        .card-enter {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; /*cubic-bezier:貝茲曲線時間函數，控制動畫速度變化的節奏*/
+        }
+
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.5); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .spin-slow {
+            animation: spin 3s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="text-white min-h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- 遊戲容器 -->
+    <div id="app" class="w-full max-w-md flex flex-col items-center">
+        <!-- 內容將由 JavaScript 動態生成 -->
+    </div>
+
+    <!-- 頁尾 -->
+    <div class="mt-8 text-slate-600 text-xs text-center">
+        © 記憶力大考驗 | 五階段挑戰版
+    </div>
+
+    <script>
+        // --- 遊戲配置與數據 ---
+        
+        const ICONS = [          // ICONS:圖示庫，const:宣告一個常數 
+            { name: 'heart', color: 'text-red-500' },       // text-:設定文字顏色，讓圖案的線條變紅
+            { name: 'star', color: 'text-yellow-500' },
+            { name: 'zap', color: 'text-yellow-400' },
+            { name: 'anchor', color: 'text-blue-500' },
+            { name: 'music', color: 'text-pink-500' },
+            { name: 'sun', color: 'text-orange-500' },
+            { name: 'moon', color: 'text-indigo-400' },
+            { name: 'cloud', color: 'text-sky-400' },
+            { name: 'umbrella', color: 'text-purple-500' },
+            { name: 'coffee', color: 'text-amber-700' },
+            { name: 'ghost', color: 'text-gray-400' },
+            { name: 'crown', color: 'text-yellow-600' },
+            { name: 'diamond', color: 'text-blue-400' },
+            { name: 'gift', color: 'text-red-600' },
+            { name: 'rocket', color: 'text-orange-600' },
+            { name: 'scissors', color: 'text-slate-400' },
+            { name: 'truck', color: 'text-green-600' },
+            { name: 'watch', color: 'text-zinc-500' },
+            { name: 'bell', color: 'text-yellow-300' },
+            { name: 'camera', color: 'text-stone-400' },
+            { name: 'flame', color: 'text-orange-500' },
+            { name: 'droplet', color: 'text-blue-400' },
+            { name: 'snowflake', color: 'text-sky-200' },
+            { name: 'flower', color: 'text-pink-400' },
+            { name: 'key', color: 'text-yellow-200' }
+        ];
+
+        // 遊戲狀態
+        let state = {
+            phase: 'start', // start, memorize, mask, guess, success, failure, gameover
+            level: 1,
+            stage: 1,
+            stageName: '新手',
+            score: 0,
+            lives: 3,
+            gridSize: 2,
+            icons: [],
+            targetIndex: -1,
+            timeLeft: 3,
+            message: ''
+        };
+
+        let timerInterval = null;
+        let timeoutId = null;
+
+        const app = document.getElementById('app');
+
+        // --- 核心邏輯 ---
+
+        function initGame() {
+            state.phase = 'start'; // 確保初始化時回到開始畫面
+            render();
+        }
+
+        // 修改：startGame 接收起始階段參數
+        function startGame(startStage = 1) {
+            // 計算起始關卡：(階段 - 1) * 5 + 1
+            // 例如：階段 1 -> L1, 階段 2 -> L6, 階段 3 -> L11
+            state.level = (startStage - 1) * 5 + 1;
+            state.score = 0;
+            state.lives = 3;
+            startRound();
+        }
+
+        function calculateStage(lvl) {
+            // 定義階段晉升規則：每 5 關一個階段
+            if (lvl <= 5) return { stage: 1, name: '新手', size: 2, time: 3 };  // L1-L5
+            if (lvl <= 10) return { stage: 2, name: '入門', size: 3, time: 4 }; // L6-L10
+            if (lvl <= 15) return { stage: 3, name: '熟練', size: 4, time: 5 }; // L11-L15
+            if (lvl <= 20) return { stage: 4, name: '專家', size: 5, time: 7 }; // L16-L20
+            return { stage: 5, name: '大師', size: 5, time: 3 };                // L21+
+        }
+
+        function startRound() {
+            const config = calculateStage(state.level); // 根據目前的關卡等級 (state.level)，去計算出這一關的「設定參數」，並將結果存入 config 這個變數中
+            
+            state.stage = config.stage;
+            state.stageName = config.name; // size: 網格大小
+            state.gridSize = config.size; // time: 記憶時間
+            state.timeLeft = config.time; // name: 階段名稱
+            
+            // 生成網格圖標
+            const totalSlots = config.size * config.size;
+            state.icons = [];
+            for (let i = 0; i < totalSlots; i++) {
+                const randomIcon = ICONS[Math.floor(Math.random() * ICONS.length)];
+                state.icons.push({ ...randomIcon, uid: Math.random() });
+            }
+
+            state.phase = 'memorize';
+            state.message = '記住這些圖案！';
+            render();
+
+            // 啟動倒數計時
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                state.timeLeft--;
+                if (state.timeLeft < 0) {
+                    clearInterval(timerInterval);
+                    enterMaskPhase();
+                } else {
+                    render(); // 更新時間顯示
+                }
+            }, 1000);
+        }
+
+        function enterMaskPhase() {
+            state.phase = 'mask';
+            render();
+            
+            // 遮蔽動畫時間
+            setTimeout(() => {
+                modifyGrid();
+            }, 1000);
+        }
+
+        function modifyGrid() {
+            const randomIndex = Math.floor(Math.random() * state.icons.length);
+            state.targetIndex = randomIndex;
+            
+            const currentIconName = state.icons[randomIndex].name;
+            let newIcon;
+            
+            // 確保新圖標與舊圖標不同
+            do {
+                newIcon = ICONS[Math.floor(Math.random() * ICONS.length)];
+            } while (newIcon.name === currentIconName);
+
+            // 更新該位置的圖標
+            state.icons[randomIndex] = { ...newIcon, uid: Math.random() };
+            
+            state.phase = 'guess';
+            state.message = '哪一個圖案變了？';
+            render();
+        }
+
+        function handleCardClick(index) {
+            if (state.phase !== 'guess') return;
+
+            if (index === state.targetIndex) {
+                // 答對
+                state.phase = 'success';
+                state.score += (100 * state.level); // 分數隨關卡增加
+                state.message = '答對了！';
+                render();
+                
+                setTimeout(() => {
+                    state.level++;
+                    startRound();
+                }, 1500);
+            } else {
+                // 答錯
+                state.lives--;
+                if (state.lives > 0) {
+                    state.phase = 'failure';
+                    state.message = '猜錯了！';
+                    render();
+                    
+                    setTimeout(() => {
+                        startRound(); // 重新開始同一關
+                    }, 1500);
+                } else {
+                    state.phase = 'gameover';
+                    render();
+                }
+            }
+        }
+
+        // --- 渲染視圖 ---
+
+        function render() {
+            app.innerHTML = ''; // 清空容器
+
+            // 1. 標題與狀態欄 (非開始與結束畫面顯示)
+            if (state.phase !== 'start' && state.phase !== 'gameover') {
+                renderHeader();
+                renderStats();
+            } else {
+                renderHeader(); // 僅標題
+            }
+
+            // 2. 主要內容區域
+            const mainContent = document.createElement('div'); // 在記憶體中憑空「創造」一個新的HTML<div>標籤
+            mainContent.className = 'w-full relative'; // w-full:寬度占滿100% relative:設定定位為相對定位
+
+            if (state.phase === 'start') {
+                // 修改：開始畫面改為難度選擇選單
+                mainContent.innerHTML = `
+                    <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-2xl text-center animate-card-enter">
+                        <div class="flex justify-center mb-4">
+                            <i data-lucide="brain-circuit" class="w-12 h-12 text-purple-500 spin-slow"></i>
+                        </div>
+                        <h2 class="text-xl font-bold mb-2">選擇挑戰難度</h2>
+                        <p class="text-slate-400 text-sm mb-6">每階段 5 個關卡，越後面越難！</p>
+                        
+                        <div class="grid gap-3 w-full">                                                                    
+                            <button onclick="startGame(1)" class="flex items-center justify-between px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all border border-slate-600 group">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-2xl group-hover:scale-110 transition-transform">🏆</span>
+                                    <div class="text-left">
+                                        <div class="font-bold text-green-400">階段 1：新手</div>
+                                        <div class="text-xs text-slate-400">2x2 網格 • 輕鬆熱身</div>
+                                    </div>
+                                </div>
+                                <i data-lucide="chevron-right" class="text-slate-500"></i>
+                            </button>
+
+                            <button onclick="startGame(2)" class="flex items-center justify-between px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all border border-slate-600 group">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-2xl group-hover:scale-110 transition-transform">🥉</span>
+                                    <div class="text-left">
+                                        <div class="font-bold text-blue-400">階段 2：入門</div>
+                                        <div class="text-xs text-slate-400">3x3 網格 • 稍微專心</div>
+                                    </div>
+                                </div>
+                                <i data-lucide="chevron-right" class="text-slate-500"></i>
+                            </button>
+
+                            <button onclick="startGame(3)" class="flex items-center justify-between px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all border border-slate-600 group">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-2xl group-hover:scale-110 transition-transform">🥈</span>
+                                    <div class="text-left">
+                                        <div class="font-bold text-purple-400">階段 3：熟練</div>
+                                        <div class="text-xs text-slate-400">4x4 網格 • 考驗記憶</div>
+                                    </div>
+                                </div>
+                                <i data-lucide="chevron-right" class="text-slate-500"></i>
+                            </button>
+
+                            <button onclick="startGame(4)" class="flex items-center justify-between px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all border border-slate-600 group">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-2xl group-hover:scale-110 transition-transform">🥇</span>
+                                    <div class="text-left">
+                                        <div class="font-bold text-yellow-400">階段 4：專家</div>
+                                        <div class="text-xs text-slate-400">5x5 網格 • 極限觀察</div>
+                                    </div>
+                                </div>
+                                <i data-lucide="chevron-right" class="text-slate-500"></i>
+                            </button>
+
+                            <button onclick="startGame(5)" class="flex items-center justify-between px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all border-l-4 border-l-red-500 border-y border-r border-slate-600 group relative overflow-hidden">
+                                <div class="absolute inset-0 bg-red-500/5 group-hover:bg-red-500/10 transition-colors"></div>
+                                <div class="flex items-center gap-3 z-10">
+                                    <span class="text-2xl group-hover:scale-110 transition-transform">👑</span>
+                                    <div class="text-left">
+                                        <div class="font-bold text-red-500">階段 5：大師</div>
+                                        <div class="text-xs text-slate-400">時間減半 • 地獄難度</div>
+                                    </div>
+                                </div>
+                                <i data-lucide="chevron-right" class="text-slate-500 z-10"></i>
+                            </button>
+                        </div>
+                    </div>
+                `; // hover:bg-slate-600:滑鼠一上去時變色 group-hover:scale-110:滑鼠移到按鈕上時，左邊的表情符號會稍微放大 border-red-500, overflow-hidden(在<button onclick="startGame(5)...):加上紅色邊框和特效，強調最高難度
+            } else if (state.phase === 'gameover') {
+                // 修改：遊戲結束畫面增加「回主選單」
+                const restartStage = calculateStage(state.level).stage;
+                mainContent.innerHTML = `
+                    <div class="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-2xl text-center animate-card-enter">
+                        <div class="flex justify-center mb-6">
+                            <i data-lucide="trophy" class="w-16 h-16 text-yellow-500"></i>
+                        </div>
+                        <h2 class="text-3xl font-bold mb-2">遊戲結束</h2>
+                        <p class="text-slate-400 mb-2">你到達了</p>
+                        <div class="text-xl font-bold text-purple-400 mb-6">階段 ${state.stage}: ${state.stageName} (Level ${state.level})</div>
+                        <div class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 mb-8">
+                            ${state.score}
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            <button onclick="startGame(${restartStage})" class="w-full px-8 py-3 bg-purple-600 hover:bg-purple-500 rounded-full font-bold text-lg transition-colors shadow-lg">
+                                再次挑戰此階段
+                            </button>
+                            <button onclick="initGame()" class="w-full px-8 py-3 bg-slate-700 hover:bg-slate-600 rounded-full font-bold text-slate-300 transition-colors border border-slate-600">
+                                回主選單
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // 遊戲進行畫面 (Memorize, Mask, Guess, Result)
+                
+                // 訊息區
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `text-center mb-4 text-xl font-bold h-8 transition-colors duration-300 ${
+                    state.phase === 'success' ? 'text-green-400' : 
+                    state.phase === 'failure' ? 'text-red-400' : 'text-white'
+                }`;
+                
+                if (state.phase === 'memorize') {
+                    // 緊急時間紅色警告
+                    const timeClass = state.timeLeft <= 2 ? 'text-red-500 scale-110' : 'text-white';
+                    msgDiv.innerHTML = `<span class="flex items-center justify-center gap-2 transition-all ${timeClass}"><i data-lucide="timer" class="w-5 h-5 animate-pulse"></i> ${state.timeLeft} 秒後消失...</span>`;
+                } else {
+                    msgDiv.textContent = state.message;
+                }
+                mainContent.appendChild(msgDiv);
+
+                // 網格區
+                const gridDiv = document.createElement('div');
+                gridDiv.className = `grid gap-2 transition-all duration-500 relative bg-slate-800 p-3 rounded-2xl border border-slate-700 shadow-xl ${state.phase === 'mask' ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`;
+                gridDiv.style.gridTemplateColumns = `repeat(${state.gridSize}, minmax(0, 1fr))`;
+
+                // 遮罩層 (DOM Placeholder)
+                if (state.phase === 'mask') {
+                    // 此處僅為結構，視覺由下方 overlay 處理
+                }
+
+                // 根據網格大小動態調整圖示尺寸
+                const iconSize = state.gridSize >= 5 ? 'w-5 h-5 sm:w-6 sm:h-6' : 'w-8 h-8 sm:w-10 sm:h-10';
+
+                // 渲染卡片
+                state.icons.forEach((icon, index) => {
+                    const btn = document.createElement('button');
+                    const isTarget = index === state.targetIndex;
+                    const showResult = (state.phase === 'success' || state.phase === 'failure') && isTarget;
+                    
+                    // 基礎樣式
+                    let btnClass = `
+                        relative group
+                        aspect-square
+                        flex items-center justify-center 
+                        bg-slate-700 rounded-lg sm:rounded-xl 
+                        border-b-4 border-slate-900
+                        transition-all duration-200
+                        w-full
+                    `;
+                    
+                    // 互動樣式
+                    if (state.phase === 'guess') {
+                        btnClass += ` hover:-translate-y-1 hover:border-b-6 hover:bg-slate-600 cursor-pointer active:translate-y-0 active:border-b-2`;
+                        btn.onclick = () => handleCardClick(index);
+                    } else {
+                        btnClass += ` cursor-default`;
+                    }
+
+                    // 結果樣式
+                    if (showResult && state.phase === 'success') btnClass += ` ring-4 ring-green-500 bg-green-900/30`;
+                    if (showResult && state.phase === 'failure') btnClass += ` ring-4 ring-red-500 bg-red-900/30`;
+
+                    btn.className = btnClass;
+
+                    // 圖標 HTML
+                    let iconHtml = `<i data-lucide="${icon.name}" class="${icon.color} ${iconSize} transition-transform duration-300 ${state.phase === 'guess' ? 'group-hover:scale-110' : ''} ${showResult ? 'scale-125' : ''}"></i>`;
+                    
+                    // 結果標記
+                    if (showResult) {
+                        const badgeIcon = state.phase === 'success' ? 'check' : 'alert-circle';
+                        const badgeColor = state.phase === 'success' ? 'text-green-500' : 'text-red-500';
+                        iconHtml += `
+                            <div class="absolute -top-2 -right-2 bg-slate-900 rounded-full p-1 border border-slate-700 shadow-lg z-10">
+                                <i data-lucide="${badgeIcon}" class="${badgeColor} w-4 h-4"></i>
+                            </div>
+                        `;
+                    }
+
+                    btn.innerHTML = iconHtml;
+                    gridDiv.appendChild(btn);
+                });
+
+                mainContent.appendChild(gridDiv);
+                
+                // 遮罩狀態下的 Loading 顯示
+                if (state.phase === 'mask') {
+                   const loadingDiv = document.createElement('div');
+                   loadingDiv.className = "absolute inset-0 flex items-center justify-center z-30 pointer-events-none";
+                   loadingDiv.innerHTML = `<i data-lucide="loader" class="animate-spin text-purple-500 w-12 h-12"></i>`;
+                   mainContent.appendChild(loadingDiv);
+                }
+            }
+
+            app.appendChild(mainContent);
+            lucide.createIcons(); // 重新渲染圖標
+        }
+
+        function renderHeader() {
+            const header = document.createElement('div');
+            header.className = "mb-4 text-center";
+            header.innerHTML = `
+                <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
+                    記憶力大考驗
+                </h1>
+            `;
+            app.appendChild(header);
+        }
+
+        function renderStats() {
+            const stats = document.createElement('div');
+            stats.className = "flex w-full max-w-md justify-between items-center bg-slate-800/80 p-3 rounded-xl mb-4 backdrop-blur-sm border border-slate-700 shadow-md";
+            
+            // 處理生命值愛心
+            let heartsHtml = '';
+            for (let i = 0; i < 3; i++) {
+                const colorClass = i < state.lives ? 'fill-red-500 text-red-500' : 'text-slate-700';
+                heartsHtml += `<i data-lucide="heart" class="w-4 h-4 ${colorClass}"></i>`;
+            }
+
+            // 階段顏色
+            const stageColors = ['text-green-400', 'text-blue-400', 'text-purple-400', 'text-yellow-400', 'text-red-500'];
+            const currentStageColor = stageColors[state.stage - 1] || 'text-white';
+
+            stats.innerHTML = `
+                <div class="flex flex-col items-center min-w-[60px]">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider">階段</span>
+                    <span class="text-sm font-bold ${currentStageColor}">${state.stageName}</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider">關卡</span>
+                    <span class="text-xl font-bold text-white">${state.level}</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider">分數</span>
+                    <span class="text-lg font-bold text-yellow-400">${state.score}</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider">生命</span>
+                    <div class="flex gap-1 mt-1">
+                        ${heartsHtml}
+                    </div>
+                </div>
+            `;
+            app.appendChild(stats); // 將製作好的「狀態欄」放入網頁畫面中
+        }
+
+        // 初始化
+        initGame();
+
+    </script>
+</body>
+</html>
