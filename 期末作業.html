@@ -1,5 +1,5 @@
 <!DOCTYPE html> <!-- 須在第一行，宣告這個網頁使用的是最新的標準 HTML5 規範，強制瀏覽器以「標準模式」來渲染網頁，確保排版和CSS樣式在不同瀏覽器一致 -->
-<html lang="zh-TW"> <!-- lang:語言的屬性 zh:中文 TW:台灣 -->
+<html lang="zh-TW"> <!--lang(語言的屬性)="文字-國家"-->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -53,7 +53,7 @@
     <script>
         // --- 遊戲配置與數據 ---
         
-        const ICONS = [          // ICONS:圖示庫，const:宣告一個常數 
+        const ICONS = [          // ICONS:圖示庫，const:宣告一個常數，設定好了就不能重新指定別的值
             { name: 'heart', color: 'text-red-500' },       // text-:設定文字顏色，讓圖案的線條變紅
             { name: 'star', color: 'text-yellow-500' },
             { name: 'zap', color: 'text-yellow-400' },
@@ -104,7 +104,7 @@
         // --- 核心邏輯 ---
 
         function initGame() {
-            state.phase = 'start'; // 確保初始化時回到開始畫面
+            state.phase = 'start'; // 確保初始化時回到開始畫面  phase:狀態變數
             render();
         }
 
@@ -118,25 +118,25 @@
             startRound();
         }
 
-        function calculateStage(lvl) {
+        function calculateStage(lvl) { // 根據目前的關卡數，決定遊戲的難度設定
             // 定義階段晉升規則：每 5 關一個階段
             if (lvl <= 5) return { stage: 1, name: '新手', size: 2, time: 3 };  // L1-L5
             if (lvl <= 10) return { stage: 2, name: '入門', size: 3, time: 4 }; // L6-L10
             if (lvl <= 15) return { stage: 3, name: '熟練', size: 4, time: 5 }; // L11-L15
             if (lvl <= 20) return { stage: 4, name: '專家', size: 5, time: 7 }; // L16-L20
-            return { stage: 5, name: '大師', size: 5, time: 3 };                // L21+
+            return { stage: 5, name: '大師', size: 5, time: 4 };                // L21+
         }
 
         function startRound() {
             const config = calculateStage(state.level); // 根據目前的關卡等級 (state.level)，去計算出這一關的「設定參數」，並將結果存入 config 這個變數中
             
-            state.stage = config.stage;
-            state.stageName = config.name; // size: 網格大小
-            state.gridSize = config.size; // time: 記憶時間
-            state.timeLeft = config.time; // name: 階段名稱
+            state.stage = config.stage;// 第幾階段
+            state.stageName = config.name;// name: 階段名稱 
+            state.gridSize = config.size; // size: 網格大小
+            state.timeLeft = config.time; // time: 記憶時間
             
             // 生成網格圖標
-            const totalSlots = config.size * config.size;
+            const totalSlots = config.size * config.size; // totalSlots:網格有幾個格子
             state.icons = [];
             for (let i = 0; i < totalSlots; i++) {
                 const randomIcon = ICONS[Math.floor(Math.random() * ICONS.length)];
@@ -208,7 +208,7 @@
                 // 答錯
                 state.lives--;
                 if (state.lives > 0) {
-                    state.phase = 'failure';
+                    state.phase = 'failure'; 
                     state.message = '猜錯了！';
                     render();
                     
@@ -446,7 +446,7 @@
             // 處理生命值愛心
             let heartsHtml = '';
             for (let i = 0; i < 3; i++) {
-                const colorClass = i < state.lives ? 'fill-red-500 text-red-500' : 'text-slate-700';
+                const colorClass = i < state.lives ? 'fill-red-500 text-red-500' : 'text-slate-700'; // slate:板岩灰
                 heartsHtml += `<i data-lucide="heart" class="w-4 h-4 ${colorClass}"></i>`;
             }
 
@@ -460,7 +460,7 @@
                     <span class="text-sm font-bold ${currentStageColor}">${state.stageName}</span>
                 </div>
                 <div class="flex flex-col items-center">
-                    <span class="text-[10px] text-slate-400 uppercase tracking-wider">關卡</span>
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider">關卡</span> 
                     <span class="text-xl font-bold text-white">${state.level}</span>
                 </div>
                 <div class="flex flex-col items-center">
@@ -473,7 +473,9 @@
                         ${heartsHtml}
                     </div>
                 </div>
-            `;
+            `; /* font-bold:文字加粗 ${currentStageColor}:根據難度，填入相對應的顏色
+            uppercase:英文字轉為大寫
+            tracking-wider:字元間距 */ 
             app.appendChild(stats); // 將製作好的「狀態欄」放入網頁畫面中
         }
 
